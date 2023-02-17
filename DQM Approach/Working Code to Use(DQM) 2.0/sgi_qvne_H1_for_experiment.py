@@ -110,7 +110,7 @@ def create_dqm_helper_function(G1, G2):
         # to be mapped to, since all nodes from G2 have to be mapped to some 
         # node in G1, but all nodes of G1 need not be mapped to a node of G2 
         
-        dqm.add_variable(n1, node)
+        dqm.add_variable(n1, label = node)
         
         print("Added {} as a discrete variable".format(node))
 
@@ -164,6 +164,7 @@ def create_dqm_helper_function(G1, G2):
                 dqm.set_quadratic_case(e2_indices[0], e1[1], e2_indices[1], e1[0], B)
                 print("------------")
     """
+    """
     # this is the better version 
     for e1 in itertools.combinations(G1.nodes, 2):
         for e2 in G2.edges:
@@ -207,7 +208,16 @@ def create_dqm_helper_function(G1, G2):
             # dqm.set_quadratic_case(e2[1], e1_indices[0], e2[0], e1_indices[1], B)
             # dqm.set_quadratic_case(e2_indices[0], e1[0], e2_indices[1], e1[1], B)
             # dqm.set_quadratic_case(e2_indices[1], e1[0], e2_indices[0], e1[1], B)
-            # print("----------")            
+            # print("----------")
+    """   
+    for edge2 in G2.edges:
+        for comb1 in itertools.combinations(G1.nodes, 2):
+            if comb1 in G1.edges:
+                continue
+
+            dqm.set_quadratic_case(edge2[0], comb1[0], edge2[1], comb1[1], B)
+            dqm.set_quadratic_case(edge2[0], comb1[1], edge2[1], comb1[0], B)
+
     return dqm
 
 
@@ -228,10 +238,14 @@ def plot_graphs_helper_function(G1, G2, node_mapping):
                             in graph 1 and nodes in graph 2. The keys are the names of nodes in
                             graph 1, and the values are the names of nodes in graph 2. 
     """
+    """
     f, ax = plt.subplots(1, 1, figsize = [10, 4.5])
 
     color_map = []
     G1_targets = node_mapping.values()
+    
+    # inv_node_mapping = {v: k for k, v in node_mapping.items()}
+    # G1 = nx.relabel_nodes(G1, inv_node_mapping, copy=False)
 
     print("G1_targets:{}".format(G1_targets))
     for i in G1.nodes:
@@ -249,6 +263,37 @@ def plot_graphs_helper_function(G1, G2, node_mapping):
                     arrows = False, 
                     with_labels = True, 
                     font_color = 'w')
+    plt.show()
+    """
+
+    # from the G/SGMorph plotting function
+    # invert the mapping so it is fromthe target graph TO the graph to embed nodes
+    # Snippet taken from:
+    # https://stackoverflow.com/a/483833
+
+    inv_node_mapping = {v: k for k, v in node_mapping.items()}
+
+    # relabel the nodes in the target graph with the node labels from the graph to embed
+    updated_nodes = nx.relabel_nodes(G1, inv_node_mapping, copy = True)
+    # Get the same fixed position as usec before
+    pos = nx.spring_layout(updated_nodes, seed = 1000)
+
+    # Highlight the nodes that have been relabeled
+    nx.draw(updated_nodes, 
+            pos, 
+            with_labels = True, 
+            nodelist = [key for key in node_mapping.keys()],
+            node_color = "tab:red")
+    
+    # Difference between two lists:
+    # https://stackoverflow.com/a/3462160
+    nx.draw(updated_nodes, 
+        pos, 
+        with_labels = True, 
+        font_color = 'w', 
+        nodelist = list(set(updated_nodes.nodes()) - set(node_mapping.keys())), 
+        node_color = "tab:blue")
+    
     plt.show()
     
 
@@ -293,8 +338,9 @@ def edges_to_graph():
     # 5. Graph G2 Sub Graph of G1 of #5
     # edges_2 = [(0, 1),(1, 2),(1, 3),(1, 4),(4, 0)]
 
-    edges_1 = [(1, 5),(2, 4),(3, 6),(2, 5),(5, 6),(2, 7),(4, 7),(5, 8),(7, 9)]
-    edges_2 = [(1, 2),(2, 3),(2, 4),(3, 4)]
+    edges_1 = [(0, 4),(1, 3),(2, 5),(1, 4),(4, 5),(1, 6),(3, 6),(4, 7),(6, 8)]
+    # edges_2 = [(1, 2),(2, 3),(2, 4),(3, 4)]
+    edges_2 = [('a', 'b'),('b', 'c'),('b', 'd'),('c', 'd')]
     
     G1 = create_graph_helper_function(edges_1)
     G2 = create_graph_helper_function(edges_2)
@@ -327,10 +373,7 @@ def find_isomorphism(G1_G2_pair_list):
     """  
     G1 = G1_G2_pair_list[0]
     G2 = G1_G2_pair_list[1]
-    nx.draw(G1, with_labels = True)
-    plt.show()
-    nx.draw(G2, with_labels = True)
-    plt.show()
+    
     if G1.number_of_nodes() < G2.number_of_nodes():
         return None
     
